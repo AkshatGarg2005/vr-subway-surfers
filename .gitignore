@@ -1,0 +1,4 @@
+.cert/
+tools/shots/
+node_modules/
+.DS_Store

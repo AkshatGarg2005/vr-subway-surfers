@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1c1233">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Metro Rush</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231c1233'/%3E%3Cpath d='M14 46 L26 18 L32 32 L38 18 L50 46' stroke='%23ff7a1a' stroke-width='7' fill='none' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;600;800&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game" aria-label="Metro Rush game view"></canvas>
+
+  <div id="ui">
+    <!-- Loading -->
+    <section id="loading" class="screen show" aria-live="polite">
+      <div class="logo small"><span>METRO</span><span>RUSH</span></div>
+      <div class="bar"><i id="loadbar"></i></div>
+      <p id="loadmsg">Building the rail yard…</p>
+    </section>
+
+    <!-- Title -->
+    <section id="title" class="screen">
+      <div class="title-wrap">
+        <div class="logo"><span>METRO</span><span>RUSH</span></div>
+        <p class="tag">Dodge the trains. Grab the coins. Don't get caught.</p>
+        <div class="buttons">
+          <button id="btnPlay" class="btn big primary">Play</button>
+          <button id="btnCardboard" class="btn">Phone VR</button>
+          <button id="btnXR" class="btn hidden">Enter VR</button>
+        </div>
+        <div class="chips" role="group" aria-label="Settings">
+          <button class="chip" data-set="sound"></button>
+          <button class="chip" data-set="hints"></button>
+          <button class="chip" data-set="camera"></button>
+          <button class="chip" data-set="sensitivity"></button>
+          <button class="chip" data-set="vrSpeed"></button>
+          <button class="chip" data-set="vignette"></button>
+        </div>
+        <p class="best">Best <b id="bestScore">0</b></p>
+        <p id="httpWarn" class="warn hidden">This page is on plain http, so your phone won't share its motion sensors.
+          Open the <b>https://</b> address that <code>node server.js</code> prints.</p>
+        <p class="keys desktop-only">← → change lane · ↑ / Space jump · ↓ roll · P pause</p>
+        <p class="keys touch-only">Swipe ← → to change lane · ↑ jump · ↓ roll</p>
+      </div>
+    </section>
+
+    <!-- In-game HUD (normal screen) -->
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div class="score"><span id="hudScore">0</span><em id="hudMult">×1</em></div>
+        <div class="dist"><span id="hudDist">0</span> m</div>
+      </div>
+      <div class="hud-right">
+        <div class="coins"><i class="coin-ico"></i><span id="hudCoins">0</span></div>
+        <button id="btnPause" class="iconbtn" aria-label="Pause">❚❚</button>
+      </div>
+      <div id="powers" class="powers"></div>
+      <div id="stumbleWarn" class="stumble hidden">Careful — the warden is right behind you!</div>
+    </div>
+
+    <div id="hint" class="hint"><span></span></div>
+    <div id="countdown" class="countdown hidden"></div>
+
+    <!-- Pause -->
+    <section id="pause" class="screen">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="btnResume" class="btn big primary">Resume</button>
+        <button id="btnRecenter" class="btn vr-only">Recenter view</button>
+        <button id="btnRecal" class="btn vr-only cardboard-only">Recalibrate body sensing</button>
+        <button id="btnQuit" class="btn">Quit</button>
+      </div>
+    </section>
+
+    <!-- Game over -->
+    <section id="over" class="screen">
+      <div class="panel">
+        <h2 id="overReason">Busted!</h2>
+        <div class="stats">
+          <div><small>Score</small><b id="overScore">0</b></div>
+          <div><small>Distance</small><b id="overDist">0 m</b></div>
+          <div><small>Coins</small><b id="overCoins">0</b></div>
+        </div>
+        <p id="overBest" class="newbest hidden">New best!</p>
+        <button id="btnAgain" class="btn big primary">Run again</button>
+        <button id="btnMenu" class="btn">Menu</button>
+        <p class="keys">Space / tap to run again</p>
+      </div>
+    </section>
+
+    <!-- Phone VR helpers -->
+    <section id="rotate" class="screen">
+      <div class="panel">
+        <div class="phone-ico"></div>
+        <h2>Rotate your phone</h2>
+        <p>Phone VR plays in landscape. Turn your phone sideways and put it in the headset.</p>
+        <button id="btnExitVR" class="btn">Back to menu</button>
+      </div>
+    </section>
+
+    <section id="sensorHelp" class="screen">
+      <div class="panel">
+        <h2>No motion data</h2>
+        <p>Body sensing needs the phone's motion sensors, and the phone only shares them with a secure page.</p>
+        <ul>
+          <li>Open the <b>https://</b> address printed by <code>node server.js</code> (not http).</li>
+          <li>Allow motion access when the browser asks.</li>
+          <li>iPhone: Settings › Apps › Safari › Advanced › Motion &amp; Orientation Access (on older iOS: Settings › Safari).</li>
+          <li>Android Chrome: Site settings › Motion sensors › Allow.</li>
+        </ul>
+        <button id="btnNoSensing" class="btn primary">Play without body sensing</button>
+        <button id="btnSensorRetry" class="btn">Try again</button>
+      </div>
+    </section>
+
+    <div id="vrbar" class="hidden">
+      <button id="btnVRPause" class="iconbtn" aria-label="Pause">❚❚</button>
+    </div>
+
+    <div id="flash"></div>
+    <pre id="debug" class="hidden"></pre>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
